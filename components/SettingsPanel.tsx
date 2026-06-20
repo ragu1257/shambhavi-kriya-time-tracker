@@ -40,9 +40,7 @@ export default function SettingsPanel({ settings, onSave, onClose }: Props) {
   }, [isDemoPlaying, local.bpm, local.flutterSound]);
 
   const toggleDemo = async () => {
-    if (!isDemoPlaying) {
-      await unlockAudio();
-    }
+    if (!isDemoPlaying) await unlockAudio();
     setIsDemoPlaying(prev => !prev);
   };
 
@@ -288,6 +286,9 @@ function SoundDropdown({
   );
 }
 
+// Tracks raw string locally so the user can freely type (including clearing
+// the field or entering a decimal mid-way). Validates and propagates to the
+// parent only on blur; reverts to the last valid value if input is invalid.
 function TimeInput({
   label,
   value,
@@ -305,6 +306,22 @@ function TimeInput({
   step: number;
   onChange: (v: number) => void;
 }) {
+  const [raw, setRaw] = useState(String(value));
+
+  // Keep local string in sync when parent resets the value externally.
+  useEffect(() => {
+    setRaw(String(value));
+  }, [value]);
+
+  const commit = () => {
+    const v = parseFloat(raw);
+    if (!isNaN(v) && v >= min && v <= max) {
+      onChange(v);
+    } else {
+      setRaw(String(value)); // revert to last valid
+    }
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
@@ -316,11 +333,9 @@ function TimeInput({
         min={min}
         max={max}
         step={step}
-        value={value}
-        onChange={e => {
-          const v = parseFloat(e.target.value);
-          if (!isNaN(v) && v >= min && v <= max) onChange(v);
-        }}
+        value={raw}
+        onChange={e => setRaw(e.target.value)}
+        onBlur={commit}
         className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-purple-500"
       />
     </div>
