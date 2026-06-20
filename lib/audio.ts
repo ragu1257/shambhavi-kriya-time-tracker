@@ -1,11 +1,21 @@
+type AudioContextCtor = typeof AudioContext;
+
+function getAudioContextClass(): AudioContextCtor | null {
+  if (typeof window === 'undefined') return null;
+  return (
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext?: AudioContextCtor }).webkitAudioContext ||
+    null
+  );
+}
+
 let audioCtx: AudioContext | null = null;
 
-function getCtx(): AudioContext {
+function getCtx(): AudioContext | null {
+  const Ctor = getAudioContextClass();
+  if (!Ctor) return null;
   if (!audioCtx || audioCtx.state === 'closed') {
-    audioCtx = new AudioContext();
-  }
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
+    audioCtx = new Ctor();
   }
   return audioCtx;
 }
@@ -19,6 +29,9 @@ function playTone(
 ) {
   try {
     const ctx = getCtx();
+    // Safari keeps AudioContext suspended until resume() resolves; skip if not ready.
+    if (!ctx || ctx.state !== 'running') return;
+
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
@@ -36,7 +49,7 @@ function playTone(
     osc.start(start);
     osc.stop(start + duration);
   } catch {
-    // AudioContext not available (SSR or blocked)
+    // AudioContext not available
   }
 }
 
@@ -68,6 +81,12 @@ export function beepMetronomeTick(volume = 0.4) {
   playTone(1200, 0.04, volume, 0, 'square');
 }
 
-export function unlockAudio() {
-  getCtx();
+// Must be awaited inside a user-gesture handler so Safari's resume() resolves
+// before any audio is scheduled.
+export async function unlockAudio(): Promise<void> {
+  const ctx = getCtx();
+  if (!ctx) return;
+  if (ctx.state !== 'running') {
+    await ctx.resume();
+  }
 }
