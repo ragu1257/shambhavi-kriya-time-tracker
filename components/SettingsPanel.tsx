@@ -31,7 +31,6 @@ export default function SettingsPanel({ settings, onSave, onClose }: Props) {
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) =>
     setLocal(prev => ({ ...prev, [key]: value }));
 
-  // Restart metronome whenever BPM or flutter sound changes or demo starts/stops.
   useEffect(() => {
     if (!isDemoPlaying) return;
     const intervalMs = Math.round((60 / local.bpm) * 1000);
@@ -103,84 +102,80 @@ export default function SettingsPanel({ settings, onSave, onClose }: Props) {
           <div>
             <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">Timings</p>
             <div className="space-y-4">
-              <OptionRow
+              <TimeInput
                 label="Settle In"
                 value={local.settleIn}
-                options={[
-                  { label: '10s', value: 10 },
-                  { label: '15s', value: 15 },
-                  { label: '20s', value: 20 },
-                ]}
+                unit="sec"
+                min={5}
+                max={60}
+                step={5}
                 onChange={v => set('settleIn', v)}
               />
-              <OptionRow
+              <TimeInput
                 label="Butterfly"
-                value={local.butterfly}
-                options={[
-                  { label: '1 min', value: 60 },
-                  { label: '2 min', value: 120 },
-                  { label: '3 min', value: 180 },
-                ]}
-                onChange={v => set('butterfly', v)}
+                value={local.butterfly / 60}
+                unit="min"
+                min={1}
+                max={5}
+                step={0.5}
+                onChange={v => set('butterfly', Math.round(v * 60))}
               />
-              <OptionRow
+              <TimeInput
                 label="Rock Baby (each leg)"
-                value={local.rockBabyRight}
-                options={[
-                  { label: '1 min', value: 60 },
-                  { label: '2 min', value: 120 },
-                  { label: '3 min', value: 180 },
-                ]}
-                onChange={v => { set('rockBabyRight', v); set('rockBabyLeft', v); }}
+                value={local.rockBabyRight / 60}
+                unit="min"
+                min={1}
+                max={5}
+                step={0.5}
+                onChange={v => {
+                  const s = Math.round(v * 60);
+                  set('rockBabyRight', s);
+                  set('rockBabyLeft', s);
+                }}
               />
-              <OptionRow
+              <TimeInput
                 label="Cat Stretch"
-                value={local.catStretch}
-                options={[
-                  { label: '5 min', value: 300 },
-                  { label: '6 min', value: 360 },
-                  { label: '7 min', value: 420 },
-                ]}
-                onChange={v => set('catStretch', v)}
+                value={local.catStretch / 60}
+                unit="min"
+                min={3}
+                max={10}
+                step={0.5}
+                onChange={v => set('catStretch', Math.round(v * 60))}
               />
-              <OptionRow
+              <TimeInput
                 label="Breathing Exercise"
-                value={local.breathing}
-                options={[
-                  { label: '6 min', value: 360 },
-                  { label: '7 min', value: 420 },
-                  { label: '8 min', value: 480 },
-                ]}
-                onChange={v => set('breathing', v)}
+                value={local.breathing / 60}
+                unit="min"
+                min={4}
+                max={15}
+                step={0.5}
+                onChange={v => set('breathing', Math.round(v * 60))}
               />
-              <OptionRow
+              <TimeInput
                 label="Nose Fluttering"
-                value={local.noseFlutter}
-                options={[
-                  { label: '2 min', value: 120 },
-                  { label: '2.5 min', value: 150 },
-                  { label: '3 min', value: 180 },
-                ]}
-                onChange={v => set('noseFlutter', v)}
+                value={local.noseFlutter / 60}
+                unit="min"
+                min={1}
+                max={5}
+                step={0.5}
+                onChange={v => set('noseFlutter', Math.round(v * 60))}
               />
-              <OptionRow
+              <TimeInput
                 label="Breath Lock"
                 value={local.breathLock}
-                options={[
-                  { label: '45s', value: 45 },
-                  { label: '60s', value: 60 },
-                  { label: '90s', value: 90 },
-                ]}
+                unit="sec"
+                min={20}
+                max={120}
+                step={5}
                 onChange={v => set('breathLock', v)}
               />
-              <OptionRow
+              <TimeInput
                 label="Total Kriya Duration"
                 value={local.totalKriyaMin}
-                options={[
-                  { label: '21 min', value: 21 },
-                  { label: '25 min', value: 25 },
-                  { label: '30 min', value: 30 },
-                ]}
+                unit="min"
+                min={15}
+                max={45}
+                step={1}
                 onChange={v => set('totalKriyaMin', v)}
               />
             </div>
@@ -293,35 +288,41 @@ function SoundDropdown({
   );
 }
 
-function OptionRow({
+function TimeInput({
   label,
   value,
-  options,
+  unit,
+  min,
+  max,
+  step,
   onChange,
 }: {
   label: string;
   value: number;
-  options: { label: string; value: number }[];
+  unit: 'min' | 'sec';
+  min: number;
+  max: number;
+  step: number;
   onChange: (v: number) => void;
 }) {
   return (
     <div>
-      <p className="text-sm text-gray-400 mb-2">{label}</p>
-      <div className="flex gap-2">
-        {options.map(opt => (
-          <button
-            key={opt.value}
-            onClick={() => onChange(opt.value)}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-              value === opt.value
-                ? 'bg-purple-700 text-white border border-purple-500'
-                : 'bg-gray-800 text-gray-400 border border-gray-700 hover:border-gray-500'
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
+      <div className="flex items-center justify-between mb-1.5">
+        <p className="text-sm text-gray-400">{label}</p>
+        <span className="text-xs text-gray-600">{unit}</span>
       </div>
+      <input
+        type="number"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={e => {
+          const v = parseFloat(e.target.value);
+          if (!isNaN(v) && v >= min && v <= max) onChange(v);
+        }}
+        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-purple-500"
+      />
     </div>
   );
 }
