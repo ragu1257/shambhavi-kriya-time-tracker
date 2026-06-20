@@ -17,7 +17,8 @@ export default function SettingsPanel({ settings, onSave, onClose }: Props) {
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) =>
     setLocal(prev => ({ ...prev, [key]: value }));
 
-  // Restart metronome whenever BPM changes or demo starts/stops
+  // Restart metronome whenever BPM changes or demo starts/stops.
+  // By this point unlockAudio() has already been awaited, so context is running.
   useEffect(() => {
     if (!isDemoPlaying) return;
     const intervalMs = Math.round((60 / local.bpm) * 1000);
@@ -26,8 +27,11 @@ export default function SettingsPanel({ settings, onSave, onClose }: Props) {
     return () => clearInterval(id);
   }, [isDemoPlaying, local.bpm]);
 
-  const toggleDemo = () => {
-    if (!isDemoPlaying) unlockAudio();
+  const toggleDemo = async () => {
+    if (!isDemoPlaying) {
+      // Await resume() so Safari's AudioContext is running before the effect fires.
+      await unlockAudio();
+    }
     setIsDemoPlaying(prev => !prev);
   };
 
