@@ -1,3 +1,6 @@
+import type { TransitionSoundType, FlutterSoundType } from './audio';
+
+export type { TransitionSoundType, FlutterSoundType };
 export type PhaseType = 'warmup' | 'transition' | 'kriya';
 
 export interface Phase {
@@ -13,34 +16,58 @@ export interface Phase {
 }
 
 export interface Settings {
+  transitionSound: TransitionSoundType;
+  flutterSound: FlutterSoundType;
+  bpm: number;
+  bpmLastUpdated: string;
+  settleIn: number;
+  butterfly: number;
+  rockBabyRight: number;
+  rockBabyLeft: number;
   catStretch: number;
   breathing: number;
   noseFlutter: number;
-  bpm: number;
+  breathLock: number;
   totalKriyaMin: number;
-  bpmLastUpdated: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  transitionSound: 'softChime',
+  flutterSound: 'softTick',
+  bpm: 85,
+  bpmLastUpdated: '',
+  settleIn: 15,
+  butterfly: 120,
+  rockBabyRight: 120,
+  rockBabyLeft: 120,
   catStretch: 360,
   breathing: 360,
   noseFlutter: 150,
-  bpm: 85,
+  breathLock: 60,
   totalKriyaMin: 21,
-  bpmLastUpdated: '',
 };
 
 export function buildPhases(settings: Settings): Phase[] {
-  const { catStretch, breathing, noseFlutter, totalKriyaMin } = settings;
+  const {
+    settleIn, butterfly, rockBabyRight, rockBabyLeft,
+    catStretch, breathing, noseFlutter, breathLock, totalKriyaMin,
+  } = settings;
   const totalKriyaSeconds = totalKriyaMin * 60;
-  const aumDuration = Math.max(totalKriyaSeconds - breathing - noseFlutter - 60, 60);
+  const aumDuration = Math.max(totalKriyaSeconds - breathing - noseFlutter - breathLock, 60);
 
   return [
+    {
+      id: 'settle_in',
+      name: 'Settle In',
+      instruction: 'Close your eyes and breathe naturally',
+      duration: settleIn,
+      type: 'warmup',
+    },
     {
       id: 'butterfly',
       name: 'Butterfly',
       instruction: 'Sit with feet together, gently flap knees',
-      duration: 120,
+      duration: butterfly,
       type: 'warmup',
     },
     {
@@ -55,7 +82,7 @@ export function buildPhases(settings: Settings): Phase[] {
       id: 'rock_right',
       name: 'Rock Baby · Right Leg',
       instruction: 'Cradle right leg, rock side to side',
-      duration: 120,
+      duration: rockBabyRight,
       type: 'warmup',
     },
     {
@@ -70,7 +97,7 @@ export function buildPhases(settings: Settings): Phase[] {
       id: 'rock_left',
       name: 'Rock Baby · Left Leg',
       instruction: 'Cradle left leg, rock side to side',
-      duration: 120,
+      duration: rockBabyLeft,
       type: 'warmup',
     },
     {
@@ -125,7 +152,7 @@ export function buildPhases(settings: Settings): Phase[] {
       id: 'breath_lock',
       name: 'Breath Lock',
       instruction: 'Lock breath inward, hold with full awareness',
-      duration: 60,
+      duration: breathLock,
       type: 'kriya',
       noEndBeep: true,
     },
