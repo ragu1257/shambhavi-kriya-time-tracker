@@ -172,7 +172,8 @@ export default function KriyaTimer() {
 
   const handleStart = async () => {
     if (!settings) return;
-    unlockAudio();
+    // Await resume() so Safari's AudioContext is running before any tone is scheduled.
+    await unlockAudio();
     await requestWakeLock();
     startSilentAudio();
     setStatus('running');
