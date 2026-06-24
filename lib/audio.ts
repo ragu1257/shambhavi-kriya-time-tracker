@@ -1,3 +1,6 @@
+export type TransitionSoundType = 'softChime' | 'singingBowl' | 'singleBeep' | 'bell';
+export type FlutterSoundType = 'softTick' | 'woodblock' | 'lowClick' | 'highPing';
+
 type AudioContextCtor = typeof AudioContext;
 
 function getAudioContextClass(): AudioContextCtor | null {
@@ -53,32 +56,50 @@ function playTone(
   }
 }
 
-export function beepWarning() {
-  playTone(660, 0.25, 0.35);
+export function playTransitionSound(type: TransitionSoundType): void {
+  switch (type) {
+    case 'softChime':
+      playTone(523, 2.0, 0.38, 0, 'sine');
+      playTone(1047, 1.4, 0.14, 0.05, 'sine');
+      break;
+    case 'singingBowl':
+      playTone(220, 3.5, 0.32, 0, 'sine');
+      playTone(440, 3.0, 0.14, 0, 'sine');
+      playTone(660, 2.5, 0.07, 0, 'sine');
+      break;
+    case 'singleBeep':
+      playTone(880, 0.3, 0.5, 0, 'sine');
+      break;
+    case 'bell':
+      playTone(440, 2.5, 0.38, 0, 'sine');
+      playTone(880, 1.8, 0.18, 0, 'sine');
+      playTone(1320, 1.2, 0.09, 0, 'sine');
+      playTone(2200, 0.6, 0.04, 0, 'sine');
+      break;
+  }
 }
 
-export function beepDouble() {
-  playTone(880, 0.3, 0.7);
-  playTone(880, 0.3, 0.7, 0.45);
-}
-
-export function beepTriple() {
-  playTone(880, 0.25, 0.7);
-  playTone(1100, 0.25, 0.7, 0.4);
-  playTone(1320, 0.4, 0.8, 0.8);
+export function playFlutterTick(type: FlutterSoundType, volume = 0.4): void {
+  switch (type) {
+    case 'softTick':
+      playTone(400, 0.05, volume, 0, 'sine');
+      break;
+    case 'woodblock':
+      playTone(180, 0.04, volume * 1.2, 0, 'triangle');
+      playTone(230, 0.02, volume * 0.6, 0, 'sine');
+      break;
+    case 'lowClick':
+      playTone(200, 0.03, volume * 1.3, 0, 'sine');
+      break;
+    case 'highPing':
+      playTone(2000, 0.04, volume * 0.7, 0, 'sine');
+      break;
+  }
 }
 
 export function beepComplete() {
   playTone(528, 1.5, 0.5);
   playTone(660, 1.5, 0.4, 0.3);
-}
-
-export function beepTransitionTick() {
-  playTone(440, 0.08, 0.25, 0, 'square');
-}
-
-export function beepMetronomeTick(volume = 0.4) {
-  playTone(1200, 0.04, volume, 0, 'square');
 }
 
 // Must be awaited inside a user-gesture handler so Safari's resume() resolves
@@ -88,5 +109,14 @@ export async function unlockAudio(): Promise<void> {
   if (!ctx) return;
   if (ctx.state !== 'running') {
     await ctx.resume();
+  }
+}
+
+// Re-resume AudioContext if iOS suspended it during a silent phase.
+export async function keepAudioAlive(): Promise<void> {
+  const ctx = getCtx();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') {
+    try { await ctx.resume(); } catch { /* ignore */ }
   }
 }

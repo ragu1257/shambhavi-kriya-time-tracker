@@ -3,13 +3,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { buildPhases, formatTime, Settings } from '@/lib/phases';
 import {
-  beepWarning,
-  beepDouble,
-  beepTriple,
+  playTransitionSound,
+  playFlutterTick,
   beepComplete,
-  beepTransitionTick,
-  beepMetronomeTick,
   unlockAudio,
+  keepAudioAlive,
+  FlutterSoundType,
 } from '@/lib/audio';
 import { loadSettings, saveSettings, applyDailyBpmIncrement } from '@/lib/storage';
 import SettingsPanel from './SettingsPanel';
@@ -28,7 +27,6 @@ export default function KriyaTimer() {
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const metronomeRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const warnedRef = useRef(false);
   const silentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -69,6 +67,13 @@ export default function KriyaTimer() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [status, requestWakeLock]);
 
+  // Re-resume AudioContext every 8 s to prevent iOS from suspending it during silent phases.
+  useEffect(() => {
+    if (status !== 'running') return;
+    const id = setInterval(() => { keepAudioAlive(); }, 8000);
+    return () => clearInterval(id);
+  }, [status]);
+
   const startSilentAudio = useCallback(() => {
     if (silentAudioRef.current) return;
     const audio = new Audio(
@@ -94,10 +99,10 @@ export default function KriyaTimer() {
     }
   }, []);
 
-  const startMetronome = useCallback((bpm: number) => {
+  const startMetronome = useCallback((bpm: number, flutterSound: FlutterSoundType) => {
     stopMetronome();
     const intervalMs = Math.round((60 / bpm) * 1000);
-    metronomeRef.current = setInterval(() => beepMetronomeTick(), intervalMs);
+    metronomeRef.current = setInterval(() => playFlutterTick(flutterSound), intervalMs);
   }, [stopMetronome]);
 
   const advancePhase = useCallback((nextIndex: number, currentPhases: ReturnType<typeof buildPhases>) => {
@@ -113,10 +118,9 @@ export default function KriyaTimer() {
     const next = currentPhases[nextIndex];
     setPhaseIndex(nextIndex);
     setElapsed(0);
-    warnedRef.current = false;
 
     if (next.hasMetronome && settings) {
-      startMetronome(settings.bpm);
+      startMetronome(settings.bpm, settings.flutterSound);
     } else {
       stopMetronome();
     }
@@ -131,27 +135,12 @@ export default function KriyaTimer() {
         const phase = buildPhases(settings)[phaseIndex];
         if (!phase) return prev;
 
-        const remaining = phase.duration - next;
-
-        if (remaining === 10 && !warnedRef.current) {
-          warnedRef.current = true;
-          if (!phase.isTransition) beepWarning();
-        }
-
-        if (phase.isTransition && remaining > 0 && remaining <= 5) {
-          beepTransitionTick();
-        }
-
         if (next >= phase.duration) {
           const phases = buildPhases(settings);
           const nextIndex = phaseIndex + 1;
 
-          if (!phase.noEndBeep) {
-            if (phase.id === 'cat_stretch') {
-              beepTriple();
-            } else if (!phase.isTransition) {
-              beepDouble();
-            }
+          if (!phase.noEndBeep && !phase.isTransition) {
+            playTransitionSound(settings.transitionSound);
           }
 
           setTimeout(() => {
@@ -174,12 +163,13 @@ export default function KriyaTimer() {
     if (!settings) return;
     // Await resume() so Safari's AudioContext is running before any tone is scheduled.
     await unlockAudio();
+    // Play immediately so the user hears confirmation that audio is working.
+    playTransitionSound(settings.transitionSound);
     await requestWakeLock();
     startSilentAudio();
     setStatus('running');
     setPhaseIndex(0);
     setElapsed(0);
-    warnedRef.current = false;
   };
 
   const handleReset = () => {
@@ -190,7 +180,6 @@ export default function KriyaTimer() {
     setStatus('idle');
     setPhaseIndex(0);
     setElapsed(0);
-    warnedRef.current = false;
   };
 
   const handleSettingsSave = (newSettings: Settings) => {
@@ -205,7 +194,7 @@ export default function KriyaTimer() {
     saveSettings(updated);
     setSettings(updated);
     if (status === 'running' && currentPhase?.hasMetronome) {
-      startMetronome(updated.bpm);
+      startMetronome(updated.bpm, updated.flutterSound);
     }
   };
 
