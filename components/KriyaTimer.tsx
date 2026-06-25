@@ -67,7 +67,7 @@ export default function KriyaTimer() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [status, requestWakeLock]);
 
-  // Re-resume AudioContext every 8 s to prevent iOS from suspending it during silent phases.
+  // Periodically re-resume AudioContext so iOS Safari doesn't suspend it during silence.
   useEffect(() => {
     if (status !== 'running') return;
     const id = setInterval(() => { keepAudioAlive(); }, 8000);
@@ -161,18 +161,16 @@ export default function KriyaTimer() {
 
   const handleStart = async (startPhaseIndex = 0) => {
     if (!settings) return;
+    // Await resume() so Safari's AudioContext is running before any tone is scheduled.
     await unlockAudio();
-    // Play immediately so the user hears confirmation that audio is working.
+    // Play an immediate confirmation sound so iOS audio session activates right away.
     playTransitionSound(settings.transitionSound);
     await requestWakeLock();
     startSilentAudio();
-
     const allPhases = buildPhases(settings);
     setStatus('running');
     setPhaseIndex(startPhaseIndex);
     setElapsed(0);
-
-    // Start metronome right away if the chosen starting phase needs it.
     if (allPhases[startPhaseIndex]?.hasMetronome) {
       startMetronome(settings.bpm, settings.flutterSound);
     }
@@ -312,10 +310,7 @@ function IdleScreen({
         {visiblePhases.map((p, i) => {
           const fullIndex = phases.findIndex(ph => ph.id === p.id);
           return (
-            <div
-              key={p.id}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-900"
-            >
+            <div key={p.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-900">
               <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
                 p.type === 'warmup' ? 'bg-blue-900 text-blue-300' : 'bg-purple-900 text-purple-300'
               }`}>
@@ -344,13 +339,10 @@ function IdleScreen({
         Begin Practice
       </button>
 
-      <p className="text-xs text-gray-600 text-center -mt-3">
-        Tap ▶ on any phase to start from there
-      </p>
-
       <p className="text-xs text-gray-600 text-center">
         Audio cues will guide you throughout.
         <br />Keep your phone volume up.
+        <br />Tap ▶ on any phase to start from there.
       </p>
     </div>
   );

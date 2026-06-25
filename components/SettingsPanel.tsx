@@ -286,9 +286,9 @@ function SoundDropdown({
   );
 }
 
-// Uses type="text" (not type="number") so that typing a decimal point does
-// not clear the field — browsers return e.target.value="" for partial numbers
-// like "2." on type="number" inputs. inputMode gives the right mobile keyboard.
+// Tracks raw string locally so the user can freely type (including clearing
+// the field or entering a decimal mid-way). Validates and propagates to the
+// parent only on blur; reverts to the last valid value if input is invalid.
 function TimeInput({
   label,
   value,
@@ -308,6 +308,7 @@ function TimeInput({
 }) {
   const [raw, setRaw] = useState(String(value));
 
+  // Keep local string in sync when parent resets the value externally.
   useEffect(() => {
     setRaw(String(value));
   }, [value]);
@@ -317,7 +318,7 @@ function TimeInput({
     if (!isNaN(v) && v >= min && v <= max) {
       onChange(v);
     } else {
-      setRaw(String(value));
+      setRaw(String(value)); // revert to last valid
     }
   };
 
