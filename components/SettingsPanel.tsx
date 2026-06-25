@@ -329,13 +329,12 @@ function TimeInput({
         <span className="text-xs text-gray-600">{unit}</span>
       </div>
       <input
-        type="number"
-        min={min}
-        max={max}
-        step={step}
+        type="text"
+        inputMode={Number.isInteger(step) ? 'numeric' : 'decimal'}
         value={raw}
         onChange={e => setRaw(e.target.value)}
         onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
         className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-purple-500"
       />
     </div>
