@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Settings, TransitionSoundType, FlutterSoundType } from '@/lib/phases';
 import { playFlutterTick, playTransitionSound, unlockAudio } from '@/lib/audio';
 
@@ -286,9 +286,6 @@ function SoundDropdown({
   );
 }
 
-// Tracks raw string locally so the user can freely type (including clearing
-// the field or entering a decimal mid-way). Validates and propagates to the
-// parent only on blur; reverts to the last valid value if input is invalid.
 function TimeInput({
   label,
   value,
@@ -307,18 +304,32 @@ function TimeInput({
   onChange: (v: number) => void;
 }) {
   const [raw, setRaw] = useState(String(value));
+  const [invalid, setInvalid] = useState(false);
+  const revertTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Keep local string in sync when parent resets the value externally.
+  // Sync when parent resets externally (e.g. after Save).
   useEffect(() => {
     setRaw(String(value));
   }, [value]);
 
+  // Clean up timer on unmount.
+  useEffect(() => {
+    return () => { if (revertTimer.current) clearTimeout(revertTimer.current); };
+  }, []);
+
   const commit = () => {
+    if (revertTimer.current) clearTimeout(revertTimer.current);
     const v = parseFloat(raw);
     if (!isNaN(v) && v >= min && v <= max) {
+      setInvalid(false);
       onChange(v);
     } else {
-      setRaw(String(value)); // revert to last valid
+      // Show red error for 1.5 s then snap back to the last valid value.
+      setInvalid(true);
+      revertTimer.current = setTimeout(() => {
+        setInvalid(false);
+        setRaw(String(value));
+      }, 1500);
     }
   };
 
@@ -329,15 +340,21 @@ function TimeInput({
         <span className="text-xs text-gray-600">{unit}</span>
       </div>
       <input
-        type="number"
-        min={min}
-        max={max}
-        step={step}
+        type="text"
+        inputMode={Number.isInteger(step) ? 'numeric' : 'decimal'}
         value={raw}
-        onChange={e => setRaw(e.target.value)}
+        onChange={e => { if (invalid) setInvalid(false); setRaw(e.target.value); }}
         onBlur={commit}
-        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-purple-500"
+        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+        className={`w-full bg-gray-800 border rounded-lg px-3 py-2 text-sm focus:outline-none transition-colors ${
+          invalid
+            ? 'border-red-500 text-red-400'
+            : 'border-gray-700 text-gray-300 focus:border-purple-500'
+        }`}
       />
+      {invalid && (
+        <p className="text-xs text-red-400 mt-1">Must be {min}–{max} {unit}</p>
+      )}
     </div>
   );
 }
