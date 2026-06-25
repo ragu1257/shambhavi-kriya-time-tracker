@@ -111,3 +111,12 @@ export async function unlockAudio(): Promise<void> {
     await ctx.resume();
   }
 }
+
+// Re-resumes AudioContext if iOS Safari suspended it during silence.
+export async function keepAudioAlive(): Promise<void> {
+  const ctx = getCtx();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') {
+    try { await ctx.resume(); } catch { /* ignore */ }
+  }
+}
