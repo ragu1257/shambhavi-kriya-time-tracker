@@ -286,9 +286,9 @@ function SoundDropdown({
   );
 }
 
-// Tracks raw string locally so the user can freely type (including clearing
-// the field or entering a decimal mid-way). Validates and propagates to the
-// parent only on blur; reverts to the last valid value if input is invalid.
+// Uses type="text" (not type="number") so that typing a decimal point does
+// not clear the field — browsers return e.target.value="" for partial numbers
+// like "2." on type="number" inputs. inputMode gives the right mobile keyboard.
 function TimeInput({
   label,
   value,
@@ -308,7 +308,6 @@ function TimeInput({
 }) {
   const [raw, setRaw] = useState(String(value));
 
-  // Keep local string in sync when parent resets the value externally.
   useEffect(() => {
     setRaw(String(value));
   }, [value]);
@@ -318,7 +317,7 @@ function TimeInput({
     if (!isNaN(v) && v >= min && v <= max) {
       onChange(v);
     } else {
-      setRaw(String(value)); // revert to last valid
+      setRaw(String(value));
     }
   };
 
@@ -329,13 +328,12 @@ function TimeInput({
         <span className="text-xs text-gray-600">{unit}</span>
       </div>
       <input
-        type="number"
-        min={min}
-        max={max}
-        step={step}
+        type="text"
+        inputMode={Number.isInteger(step) ? 'numeric' : 'decimal'}
         value={raw}
         onChange={e => setRaw(e.target.value)}
         onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
         className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-purple-500"
       />
     </div>

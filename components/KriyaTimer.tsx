@@ -159,17 +159,23 @@ export default function KriyaTimer() {
     };
   }, [status, phaseIndex, settings, advancePhase]);
 
-  const handleStart = async () => {
+  const handleStart = async (startPhaseIndex = 0) => {
     if (!settings) return;
-    // Await resume() so Safari's AudioContext is running before any tone is scheduled.
     await unlockAudio();
     // Play immediately so the user hears confirmation that audio is working.
     playTransitionSound(settings.transitionSound);
     await requestWakeLock();
     startSilentAudio();
+
+    const allPhases = buildPhases(settings);
     setStatus('running');
-    setPhaseIndex(0);
+    setPhaseIndex(startPhaseIndex);
     setElapsed(0);
+
+    // Start metronome right away if the chosen starting phase needs it.
+    if (allPhases[startPhaseIndex]?.hasMetronome) {
+      startMetronome(settings.bpm, settings.flutterSound);
+    }
   };
 
   const handleReset = () => {
@@ -285,7 +291,7 @@ function IdleScreen({
   settings: Settings;
   warmupCount: number;
   kriyaCount: number;
-  onStart: () => void;
+  onStart: (startIndex?: number) => void;
 }) {
   const phases = buildPhases(settings);
   const visiblePhases = phases.filter(p => !p.isTransition);
@@ -303,25 +309,44 @@ function IdleScreen({
       </div>
 
       <div className="w-full space-y-1.5">
-        {visiblePhases.map((p, i) => (
-          <div key={p.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-900">
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-              p.type === 'warmup' ? 'bg-blue-900 text-blue-300' : 'bg-purple-900 text-purple-300'
-            }`}>
-              {i + 1}
-            </span>
-            <span className="text-sm text-gray-300 flex-1">{p.name}</span>
-            <span className="text-xs text-gray-500 font-mono">{formatTime(p.duration)}</span>
-          </div>
-        ))}
+        {visiblePhases.map((p, i) => {
+          const fullIndex = phases.findIndex(ph => ph.id === p.id);
+          return (
+            <div
+              key={p.id}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-900"
+            >
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                p.type === 'warmup' ? 'bg-blue-900 text-blue-300' : 'bg-purple-900 text-purple-300'
+              }`}>
+                {i + 1}
+              </span>
+              <span className="text-sm text-gray-300 flex-1">{p.name}</span>
+              <span className="text-xs text-gray-500 font-mono">{formatTime(p.duration)}</span>
+              <button
+                onClick={() => onStart(fullIndex)}
+                title={`Start from ${p.name}`}
+                className="p-1.5 text-gray-600 hover:text-purple-400 active:text-purple-300 transition-colors rounded-lg hover:bg-gray-800 flex-shrink-0"
+              >
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       <button
-        onClick={onStart}
+        onClick={() => onStart(0)}
         className="w-full py-5 bg-purple-600 hover:bg-purple-500 active:bg-purple-700 rounded-2xl text-xl font-bold tracking-wide transition-colors shadow-lg shadow-purple-900/40"
       >
         Begin Practice
       </button>
+
+      <p className="text-xs text-gray-600 text-center -mt-3">
+        Tap ▶ on any phase to start from there
+      </p>
 
       <p className="text-xs text-gray-600 text-center">
         Audio cues will guide you throughout.
